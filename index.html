@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DC匠アプリ</title>
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#146b45">
+<meta name="apple-mobile-web-app-title" content="DC匠">
+<style>
+  :root{
+    /* DC匠アプリはグリーン系（退職金受取アプリ＝ブルー系との取り違え防止）。
+       変数名は退職金受取アプリと同じまま、値だけ差し替えている。 */
+    --blue:#146b45; --blue-dark:#0f5233; --blue-pale:#e9f4ec;
+    --border:#c6dccd; --text:#1f2d3d; --muted:#5b6b7c;
+    --warn-bg:#fff7e6; --warn-border:#e0a800;
+    --ok:#0d7a3f;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
+    margin:0; background:#f3f8f4; color:var(--text); line-height:1.6;}
+  header{background:var(--blue); color:#fff; padding:14px 20px;}
+  header h1{margin:0; font-size:1.25rem;}
+  header p{margin:4px 0 0; font-size:.8rem; opacity:.9;}
+  main{max-width:960px; margin:0 auto; padding:16px;}
+  .card{background:#fff; border:1px solid var(--border); border-radius:10px;
+    padding:16px; margin-bottom:16px;}
+  .card h2{margin:0 0 10px; font-size:1.05rem; color:var(--blue-dark);
+    border-left:4px solid var(--blue); padding-left:8px;}
+  .card.disabled .body{display:none;}
+  .row{display:flex; flex-wrap:wrap; gap:12px; margin-bottom:8px;}
+  .field{display:flex; flex-direction:column; min-width:150px; flex:1;}
+  .field label{font-size:.78rem; color:var(--muted); margin-bottom:2px;}
+  .field input,.field select{padding:8px; border:1px solid var(--border);
+    border-radius:6px; font-size:1rem; background:#fff;}
+  .field input:focus,.field select:focus{outline:2px solid var(--blue); border-color:var(--blue);}
+  .check{display:flex; align-items:center; gap:6px; font-size:.88rem; margin:4px 0;}
+  .check input{width:18px; height:18px;}
+  .toggle{display:flex; align-items:center; gap:8px; font-size:.95rem; font-weight:bold;}
+  .toggle input{width:20px; height:20px;}
+  .note{font-size:.78rem; color:var(--muted);}
+  .tabs{display:flex; gap:6px; background:#fff; border:1px solid var(--border);
+    border-radius:10px; padding:6px; margin-bottom:16px;}
+  .tabs button{flex:1; padding:11px 8px; font-size:1rem; font-weight:bold; cursor:pointer;
+    border:none; border-radius:8px; background:transparent; color:var(--muted); font-family:inherit;}
+  .tabs button.active{background:var(--blue); color:#fff;}
+  .tabs button .sub{display:block; font-size:.7rem; font-weight:normal; opacity:.85;}
+  .derived{background:var(--blue-pale); border:1px solid var(--border); border-radius:8px;
+    padding:8px 12px; margin:4px 0 8px; font-size:.9rem; color:var(--blue-dark); font-weight:bold;}
+  .derived .sub{display:block; font-size:.78rem; font-weight:normal; color:var(--muted);}
+  .field input.agebox{font-size:1.05rem; font-weight:bold; text-align:center;}
+  input::placeholder{color:#a3b0bd; font-weight:normal; opacity:1;}
+  input::-webkit-input-placeholder{color:#a3b0bd; font-weight:normal;}
+  .field.hasdate{min-width:228px;}
+  .field.birthfield{max-width:300px;}
+  .ruleNote{background:var(--warn-bg); border:1px solid var(--warn-border); border-radius:10px;
+    padding:10px 14px; margin-bottom:16px; font-size:.83rem; line-height:1.7;}
+  .seireki{display:flex; align-items:center; gap:4px;}
+  .seireki input{flex:1; min-width:0; padding:5px 8px; font-size:.98rem;}
+  .wareki{display:flex; align-items:center; flex-wrap:wrap; gap:2px; margin-top:5px;}
+  .tag{font-size:.66rem; color:var(--muted); background:#eaf3ec; border:1px solid var(--border);
+    border-radius:4px; padding:2px 3px; flex:none;}
+  .wareki .unit{font-size:.7rem; color:var(--muted); flex:none; margin:0 1px 0 0;}
+  .wareki select{padding:4px 0; border:1px solid var(--border); border-radius:5px;
+    font-size:.78rem; background:#fff; color:var(--text); flex:none;}
+  .wareki input{width:2.3em; padding:4px 0; border:1px solid var(--border); border-radius:5px;
+    font-size:.85rem; font-weight:bold; text-align:center; color:var(--text); background:#fff; flex:none;}
+  .wareki input::-webkit-outer-spin-button,.wareki input::-webkit-inner-spin-button{-webkit-appearance:none; margin:0;}
+  .wareki input{-moz-appearance:textfield;}
+  .wareki.bad input,.wareki.bad select{border-color:#d9534f; background:#fdecec;}
+  .wareki.bad .tag{color:#a02622; border-color:#d9534f;}
+  button.calc{display:block; width:100%; padding:14px; font-size:1.15rem; font-weight:bold;
+    color:#fff; background:var(--blue); border:none; border-radius:10px; cursor:pointer;}
+  button.calc:hover{background:var(--blue-dark);}
+  .error{background:#fdecec; border:1px solid #d9534f; color:#a02622;
+    padding:10px 14px; border-radius:8px; margin-bottom:12px; font-size:.9rem;}
+  .warn{background:var(--warn-bg); border:1px solid var(--warn-border);
+    padding:8px 12px; border-radius:8px; margin:8px 0; font-size:.85rem;}
+  table.result{width:100%; border-collapse:collapse; font-size:.9rem; margin-top:8px;}
+  table.result th,table.result td{border:1px solid var(--border); padding:6px 8px;}
+  table.result th{background:var(--blue-pale); text-align:left; width:46%; font-weight:normal;}
+  table.result td{text-align:right; font-variant-numeric:tabular-nums;}
+  table.result td.left{text-align:left;}
+  .amount-big{font-size:1.1rem; font-weight:bold;}
+  .total-box{background:var(--blue-pale); border:2px solid var(--blue); border-radius:10px;
+    padding:14px 16px; margin-bottom:16px;}
+  .total-box h2{margin:0 0 8px; font-size:1.1rem; color:var(--blue-dark); border:none; padding:0;}
+  .total-grid{display:flex; flex-wrap:wrap; gap:16px;}
+  .total-item{flex:1; min-width:160px; background:#fff; border-radius:8px; padding:10px 12px;
+    border:1px solid var(--border);}
+  .total-item .lbl{font-size:.78rem; color:var(--muted);}
+  .total-item .val{font-size:1.25rem; font-weight:bold;}
+  .total-item.tax .val{color:#b3261e;}
+  .total-item.net .val{color:var(--ok);}
+  .detail{font-size:.82rem; color:var(--muted); background:#f6faf7;
+    border:1px dashed var(--border); border-radius:8px; padding:8px 12px; margin-top:8px;}
+  .detail ul{margin:4px 0; padding-left:18px;}
+  footer{max-width:960px; margin:0 auto; padding:8px 16px 40px; font-size:.75rem; color:var(--muted);}
+  footer ul{padding-left:18px;}
+  @media (max-width:600px){ .field{min-width:120px;} }
+  /* 入場コード画面 */
+  #gate{position:fixed; inset:0; z-index:9999; background:var(--blue);
+    display:flex; align-items:center; justify-content:center; padding:20px;}
+  .gatebox{background:#fff; border-radius:14px; padding:26px 22px; width:100%; max-width:360px;
+    box-shadow:0 10px 30px rgba(0,0,0,.25); text-align:center;}
+  .gatebox h1{margin:0 0 4px; font-size:1.3rem; color:var(--blue-dark);}
+  .gatebox .lead{margin:0 0 18px; font-size:.85rem; color:var(--muted);}
+  .gatebox .glabel{display:block; text-align:left; font-size:.76rem; color:var(--muted); margin:14px 0 4px;}
+  .pwwrap{position:relative;}
+  .pwwrap input{padding-right:46px;}
+  /* ブラウザ標準の「目」「×」ボタンを消す（自前の👁と二重に出るため）
+     ::-ms-reveal / ::-ms-clear = Edge、::-webkit-* = Chrome/Safari のパスワード補助ボタン */
+  .pwwrap input::-ms-reveal,
+  .pwwrap input::-ms-clear{display:none; width:0; height:0;}
+  .pwwrap input::-webkit-credentials-auto-fill-button,
+  .pwwrap input::-webkit-strong-password-auto-fill-button,
+  .pwwrap input::-webkit-textfield-decoration-container{
+    visibility:hidden; display:none !important; pointer-events:none; width:0; margin:0;}
+  .gatebox .eye{position:absolute; right:5px; top:50%; transform:translateY(-50%);
+    width:36px; height:36px; margin:0; padding:0; border:none; border-radius:8px;
+    background:transparent; color:var(--muted); font-size:1.15rem; line-height:1; cursor:pointer; opacity:.55;}
+  .gatebox .eye:hover{background:var(--blue-pale); opacity:.85;}
+  .gatebox .eye.on{opacity:1; color:var(--blue); background:var(--blue-pale);}
+  .gatebox input{width:100%; padding:11px; font-size:1.5rem; font-weight:bold; letter-spacing:.22em;
+    text-align:center; border:1px solid var(--border); border-radius:8px; background:#fff; color:var(--text);}
+  .gatebox input:focus{outline:2px solid var(--blue); border-color:var(--blue);}
+  .gatebox button{width:100%; margin-top:12px; padding:13px; font-size:1.05rem; font-weight:bold;
+    color:#fff; background:var(--blue); border:none; border-radius:8px; cursor:pointer; font-family:inherit;}
+  .gatebox button:hover{background:var(--blue-dark);}
+  #gateMsg{min-height:1.4em; margin-top:10px; font-size:.85rem; color:#b3261e; font-weight:bold;}
+  .gatebox .gatenote{margin:14px 0 0; font-size:.72rem; color:var(--muted); line-height:1.6;}
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="gatebox">
+    <h1>DC匠アプリ</h1>
+    <p class="lead">お客様番号とパスワードを入力してください</p>
+    <label class="glabel" for="gateId">お客様番号（6桁）</label>
+    <input type="text" id="gateId" inputmode="numeric" maxlength="6" placeholder="100101"
+           autocomplete="off" onkeydown="if(event.key==='Enter')tryUnlock()">
+    <label class="glabel" for="gateCode">パスワード（5桁）</label>
+    <div class="pwwrap">
+      <input type="password" id="gateCode" inputmode="numeric" maxlength="5"
+             autocomplete="off" onkeydown="if(event.key==='Enter')tryUnlock()">
+      <button type="button" class="eye" id="eyeBtn" onclick="toggleEye()"
+              aria-label="パスワードを表示">&#128065;</button>
+    </div>
+    <button type="button" onclick="tryUnlock()">開く</button>
+    <div id="gateMsg"></div>
+    <p class="gatenote">パスワードはご契約月に年1回変わります。<br>お分かりにならない場合はご連絡ください。</p>
+  </div>
+</div>
+
+<header>
+  <h1>DC匠アプリ</h1>
+  <p>年齢だけで、退職金・DC一時金の受取パターンごとの税負担を試算します（令和7年度税制改正後のルールで計算）</p>
+</header>
+<main>
+
+  <div class="tabs">
+    <button type="button" id="tabSimple" onclick="setMode('simple')">簡易入力<span class="sub">年齢で入力</span></button>
+    <button type="button" id="tabDetail" onclick="setMode('detail')">詳細入力<span class="sub">年月日で入力</span></button>
+  </div>
+
+  <div id="simpleWrap">
+    <div class="ruleNote">
+      <b>新ルール（令和7年度税制改正後）で計算します。</b>
+      生年月日は不要です。DCの重複判定は「今回分がDC＝前19年内／前のDC一時金＝前9年内」で固定して計算します。
+      実際の受取年が2025年以前で旧ルール（4年内）になるケースを見たいときは「詳細入力」をお使いください。
+    </div>
+    <div id="simpleInputs"></div>
+  </div>
+
+  <div id="detailWrap">
+    <div id="inputs"></div>
+  </div>
+
+  <button class="calc" onclick="run()">計算する</button>
+
+  <div id="output" style="margin-top:16px;"></div>
+
+</main>
+<footer>
+  <b>計算ルール（出典：国税庁タックスアンサー No.1420・No.2732・No.2735、令和7年度税制改正大綱）</b>
+  <ul>
+    <li>退職所得控除：勤続20年以下 40万円×年数（最低80万円）、20年超 800万円＋70万円×（年数−20年）。勤続年数の1年未満端数は切上げ。</li>
+    <li>課税退職所得＝（収入−控除）×1/2（1,000円未満切捨て）。役員等勤続5年以下は1/2なし。役員以外で勤続5年以下は控除後300万円超部分が1/2なし。</li>
+    <li>所得税は分離課税の速算表＋復興特別所得税2.1%（1円未満切捨て）。住民税は市町村民税6%＋道府県民税4%（各100円未満切捨て）。</li>
+    <li>重複調整：今回分がDC以外→前4年内の退職金／前9年内のDC一時金と勤続期間が重複する場合、重複年数（1年未満切捨て）分の控除相当額を減額。今回分がDC一時金→前19年内の退職金等が対象。調整後の控除額が80万円未満となる場合は最低80万円を保障。<br><b>「簡易入力」タブは常にこの新ルール（令和7年度改正後）で計算します。</b>「詳細入力」タブは実際の受取年で判定し、前のDC一時金が2025年以前受取なら旧ルール（4年内）を適用します。</li>
+    <li>前の退職金が控除額に満たない場合は「みなし勤続年数」（800万円以下：収入÷40万円、800万円超：（収入−800万円）÷70万円＋20、1年未満切捨て）で重複期間を計算。</li>
+    <li>同じタイミング（詳細入力では同一年、簡易入力では同じ受取年齢）で複数の支払を受ける場合は収入を合算し、勤続期間は最長期間に重複しない期間を加算して通算。</li>
+  </ul>
+  <p>※日付はすべて西暦（カレンダー）と和暦（元号・年・月・日）のどちらからでも入力でき、片方に入れるともう片方が自動で埋まります。対応元号は明治・大正・昭和・平成・令和で、元号の期間外の日付（例：昭和64年3月1日）は赤く表示されます。</p>
+  <p>※「簡易入力」タブは生年月日を使いません。在職年数（DC加入年数）＝退職年齢−入社年齢ちょうど、受取の前後関係＝受取年齢の差、として計算します。実際の入社日・退職日で1年未満の端数切上げを反映したい場合や、受取年が2025年以前で旧ルールになる場合は「詳細入力」タブをお使いください。</p>
+  <p>※本アプリは概算シミュレーションです。実際の課税は源泉徴収・申告時に確定します。障害者加算（＋100万円）は各退職金のチェックで反映できます。</p>
+</footer>
+
+<script id="calc-core">
+/* ===== 計算コア（DOM非依存） ===== */
+
+const YEN = n => n.toLocaleString("ja-JP") + "円";
+
+function d(str){ // "YYYY-MM-DD" -> Date（ローカル）
+  const [y,m,dd] = str.split("-").map(Number);
+  return new Date(y, m-1, dd);
+}
+function addDays(dt, n){ const r = new Date(dt); r.setDate(r.getDate()+n); return r; }
+function addYears(dt, n){ const r = new Date(dt); r.setFullYear(r.getFullYear()+n); return r; }
+
+// 開始日〜終了日（両端含む）の丸め前経過年数（満年数）と端数有無
+function fullYearsInclusive(start, endInclusive){
+  const endEx = addDays(endInclusive, 1); // 排他端に変換
+  let y = endEx.getFullYear() - start.getFullYear();
+  if (addYears(start, y) > endEx) y--;
+  const hasFraction = addYears(start, y) < endEx;
+  return { years: y, hasFraction };
+}
+function yearsCeil(start, endInclusive){   // 勤続年数（切上げ）
+  const {years, hasFraction} = fullYearsInclusive(start, endInclusive);
+  return Math.max(1, years + (hasFraction ? 1 : 0));
+}
+function yearsFloor(start, endInclusive){  // 重複年数（切捨て）
+  return Math.max(0, fullYearsInclusive(start, endInclusive).years);
+}
+
+// 退職所得控除の基本式（最低80万円あり）
+function deductionByYears(n){
+  if (n <= 0) return 0;
+  return n <= 20 ? Math.max(800000, 400000*n) : 8000000 + 700000*(n-20);
+}
+// 重複分の控除相当額（最低保障なし）
+function deductionEquivalent(n){
+  if (n <= 0) return 0;
+  return n <= 20 ? 400000*n : 8000000 + 700000*(n-20);
+}
+// みなし勤続年数（前の退職金収入が控除に満たない場合）
+function minashiYears(income){
+  const n = income <= 8000000 ? income/400000 : (income-8000000)/700000 + 20;
+  return Math.floor(n);
+}
+
+/* 期間集合ユーティリティ：期間は {s:Date, e:Date}（両端含む） */
+function mergeIntervals(list){
+  const arr = list.filter(x=>x.s<=x.e).slice().sort((a,b)=>a.s-b.s);
+  const out = [];
+  for (const iv of arr){
+    const last = out[out.length-1];
+    if (last && iv.s <= addDays(last.e,1)) { if (iv.e > last.e) last.e = iv.e; }
+    else out.push({s:new Date(iv.s), e:new Date(iv.e)});
+  }
+  return out;
+}
+function intersectSets(setA, setB){
+  const out = [];
+  for (const a of setA) for (const b of setB){
+    const s = a.s > b.s ? a.s : b.s;
+    const e = a.e < b.e ? a.e : b.e;
+    if (s <= e) out.push({s,e});
+  }
+  return mergeIntervals(out);
+}
+function floorYearsOfSet(set){
+  if (set.length === 0) return 0;
+  if (set.length === 1) return yearsFloor(set[0].s, set[0].e);
+  const days = set.reduce((t,iv)=> t + Math.round((iv.e-iv.s)/86400000) + 1, 0);
+  return Math.floor(days / 365.2425);
+}
+function ceilYearsOfSet(set){
+  if (set.length === 0) return 0;
+  if (set.length === 1) return yearsCeil(set[0].s, set[0].e);
+  const days = set.reduce((t,iv)=> t + Math.round((iv.e-iv.s)/86400000) + 1, 0);
+  return Math.max(1, Math.ceil(days / 365.2425));
+}
+
+// 所得税速算表（分離課税・平成27年分以後）＋復興特別所得税2.1%（1円未満切捨て）
+function incomeTaxOn(taxable){
+  let t;
+  if      (taxable <= 1949000)  t = taxable*0.05;
+  else if (taxable <= 3299000)  t = taxable*0.10 -   97500;
+  else if (taxable <= 6949000)  t = taxable*0.20 -  427500;
+  else if (taxable <= 8999000)  t = taxable*0.23 -  636000;
+  else if (taxable <= 17999000) t = taxable*0.33 - 1536000;
+  else if (taxable <= 39999000) t = taxable*0.40 - 2796000;
+  else                          t = taxable*0.45 - 4796000;
+  return Math.floor(t * 1.021);
+}
+function residentTaxOn(taxable){
+  const city = Math.floor(taxable*0.06/100)*100;
+  const pref = Math.floor(taxable*0.04/100)*100;
+  return city + pref;
+}
+
+/*
+ payments: [{no, isDC, isOfficer, isDisability, income, start:"YYYY-MM-DD", end:"YYYY-MM-DD", receive:"YYYY-MM-DD"}]
+ opts.yearLabel   : 受取タイミングの表示名を作る関数（既定は "2025年"）。年齢入力では "60歳" を返す
+ opts.newRuleOnly : true なら前のDC一時金を常に「前年以前9年内」で判定（令和7年度改正後の姿に固定）
+ 戻り値: {events:[...], totals:{...}, warnings:[...]}
+*/
+function calculateAll(payments, opts){
+  opts = opts || {};
+  const YL = opts.yearLabel || (y => `${y}年`);
+  const newRuleOnly = !!opts.newRuleOnly;
+  const warnings = [];
+  const pays = payments.map(p => ({
+    ...p, sd: d(p.start), ed: d(p.end), rd: d(p.receive),
+    rYear: d(p.receive).getFullYear()
+  })).sort((a,b)=> a.rd - b.rd);
+
+  // 受取年ごとにグループ化（同一年＝合算計算）
+  const byYear = new Map();
+  for (const p of pays){
+    if (!byYear.has(p.rYear)) byYear.set(p.rYear, []);
+    byYear.get(p.rYear).push(p);
+  }
+  const events = [];
+  for (const [year, list] of [...byYear.entries()].sort((a,b)=>a[0]-b[0])){
+    const ev = { year, payments: list, notes: [] };
+    ev.income = list.reduce((t,p)=> t + p.income, 0);
+    ev.hasDC = list.some(p=>p.isDC);
+    ev.periodSet = mergeIntervals(list.map(p=>({s:p.sd, e:p.ed})));
+    ev.serviceYears = ceilYearsOfSet(ev.periodSet);
+    if (list.length > 1) ev.notes.push(`同じタイミング（${YL(year)}受取）で${list.length}件あるため合算し、勤続期間を通算して計算`);
+
+    // 種別判定（1/2課税の適用可否）
+    const officer = list.some(p=>p.isOfficer);
+    if (list.length === 1){
+      const p = list[0];
+      if (p.isOfficer && ev.serviceYears <= 5) ev.kind = "officer";       // 特定役員
+      else if (!p.isOfficer && ev.serviceYears <= 5) ev.kind = "short";   // 短期
+      else ev.kind = "general";
+    } else {
+      ev.kind = "general";
+      if (ev.serviceYears <= 5 || officer){
+        ev.kind = officer && ev.serviceYears<=5 ? "officer" : (ev.serviceYears<=5 ? "short" : "general");
+        warnings.push(`${YL(year)}受取：同じタイミングに複数の退職金があり勤続5年以下または役員退職金を含みます。混在ケース（国税庁コード2741）は簡易計算のため、実際の税額と異なる場合があります。`);
+      }
+    }
+
+    // ---- 重複調整（前年以前の受取分） ----
+    ev.baseDeduction = deductionByYears(ev.serviceYears);
+    const priorSets = [];
+    for (const pe of events){ // events は年順に構築済み＝すべて過去年
+      for (const pp of pe.payments){
+        const gap = year - pp.rYear;           // 「前年以前n年内」= gap が 1〜n
+        let windowN = 0, rule = "";
+        if (ev.hasDC){
+          windowN = 19; rule = "今回分がDC一時金のため前19年内で判定";
+        } else if (pp.isDC){
+          if (newRuleOnly){ windowN = 9; rule = "前のDC一時金は新ルール（令和7年度改正）のため前9年内で判定"; }
+          else if (pp.rYear >= 2026){ windowN = 9; rule = "前のDC一時金が2026年以後受取のため前年以前9年内で判定（令和7年度改正）"; }
+          else { windowN = 4; rule = "前のDC一時金が2025年以前受取のため前年以前4年内で判定（旧法）"; }
+        } else {
+          windowN = 4; rule = "前4年内で判定";
+        }
+        if (gap >= 1 && gap <= windowN){
+          // 前の退職金が控除額を使い切っていなければ「みなし勤続期間」で重複を計算
+          let pSet, minashiNote = "";
+          if (pe.income < pe.deduction){
+            const my = minashiYears(pe.income);
+            if (my <= 0){ ev.notes.push(`${YL(pp.rYear)}受取分：みなし勤続年数0年のため重複調整なし`); continue; }
+            // みなし期間＝勤続期間の初日からみなし勤続年数経過日の前日まで
+            const first = pe.periodSet[0].s;
+            pSet = [{ s:first, e:addDays(addYears(first, my), -1) }];
+            minashiNote = `（前の退職金${YEN(pe.income)}＜控除額${YEN(pe.deduction)}のため、みなし勤続年数${my}年で判定）`;
+          } else {
+            pSet = pe.periodSet;
+          }
+          priorSets.push(...pSet);
+          ev.notes.push(`${YL(pp.rYear)}受取分（${pp.isDC?"DC":"DC以外"}）と重複調整：${rule}${minashiNote}`);
+        } else if (gap >= 1){
+          ev.notes.push(`${YL(pp.rYear)}受取分は${rule.replace("で判定","")}の対象期間外（${gap}年前）→ 調整なし・控除フル適用`);
+        }
+      }
+    }
+    let overlapYears = 0;
+    if (priorSets.length){
+      const overlapSet = intersectSets(ev.periodSet, mergeIntervals(priorSets));
+      overlapYears = floorYearsOfSet(overlapSet);
+      if (overlapYears > 0){
+        ev.notes.push(`勤続期間の重複：${overlapYears}年（1年未満切捨て）→ 控除額を${YEN(deductionEquivalent(overlapYears))}減額`);
+      } else {
+        ev.notes.push("勤続期間の重複が1年未満のため控除減額なし");
+      }
+    }
+    ev.overlapYears = overlapYears;
+    const adjusted = ev.baseDeduction - deductionEquivalent(overlapYears);
+    ev.deduction = Math.max(800000, adjusted);
+    if (overlapYears > 0 && adjusted < 800000){
+      ev.notes.push(`調整後の控除額（${YEN(Math.max(0,adjusted))}）が80万円未満のため、最低保障の80万円を適用（国税庁No.2732）`);
+    }
+    if (list.some(p=>p.isDisability)){
+      ev.deduction += 1000000;
+      ev.notes.push("障害者となったことに直接基因する退職のため控除額に100万円加算");
+    }
+
+    // ---- 課税退職所得・税額 ----
+    const diff = Math.max(0, ev.income - ev.deduction);
+    if (ev.kind === "officer"){
+      ev.taxable = Math.floor(diff/1000)*1000;
+      ev.notes.push("役員等勤続年数5年以下（特定役員退職手当等）のため2分の1課税なし");
+    } else if (ev.kind === "short"){
+      ev.taxable = diff <= 3000000
+        ? Math.floor(diff/2/1000)*1000
+        : Math.floor((1500000 + (diff-3000000))/1000)*1000;
+      ev.notes.push("勤続年数5年以下（短期退職手当等）のため控除後300万円超部分は2分の1課税なし");
+    } else {
+      ev.taxable = Math.floor(diff/2/1000)*1000;
+    }
+    ev.incomeTax = ev.taxable > 0 ? incomeTaxOn(ev.taxable) : 0;
+    ev.residentTax = ev.taxable > 0 ? residentTaxOn(ev.taxable) : 0;
+    ev.totalTax = ev.incomeTax + ev.residentTax;
+    ev.net = ev.income - ev.totalTax;
+    events.push(ev);
+  }
+
+  const totals = {
+    income: events.reduce((t,e)=>t+e.income,0),
+    tax:    events.reduce((t,e)=>t+e.totalTax,0),
+    net:    events.reduce((t,e)=>t+e.net,0),
+  };
+  return { events, totals, warnings };
+}
+</script>
+
+<script>
+/* ===== UI ===== */
+const NUM = ["1回目","2回目","3回目"];
+
+/* ===== 和暦⇔西暦（すべての日付欄で併用） ===== */
+const ERAS = [
+  {name:"令和", base:2019, start:"2019-05-01", end:null       },
+  {name:"平成", base:1989, start:"1989-01-08", end:"2019-04-30"},
+  {name:"昭和", base:1926, start:"1926-12-25", end:"1989-01-07"},
+  {name:"大正", base:1912, start:"1912-07-30", end:"1926-12-24"},
+  {name:"明治", base:1868, start:"1868-01-25", end:"1912-07-29"},
+];
+
+function warekiBlock(id, defEra){
+  const opts = ERAS.map(e=>`<option value="${e.name}"${e.name===defEra?" selected":""}>${e.name}</option>`).join("");
+  return `<div class="wareki" id="w_${id}">
+    <span class="tag">和暦</span>
+    <select id="${id}_era" onchange="fromWareki('${id}')">${opts}</select>
+    <input type="number" id="${id}_y" min="1" max="99" inputmode="numeric" oninput="fromWareki('${id}')"><span class="unit">年</span>
+    <input type="number" id="${id}_m" min="1" max="12" inputmode="numeric" oninput="fromWareki('${id}')"><span class="unit">月</span>
+    <input type="number" id="${id}_d" min="1" max="31" inputmode="numeric" oninput="fromWareki('${id}')"><span class="unit">日</span>
+  </div>`;
+}
+// 西暦カレンダー＋和暦欄をひとまとめにした入力欄
+function dateField(id, labelId, labelText, defEra, cls){
+  return `<div class="field hasdate ${cls||""}">
+    <label id="${labelId}">${labelText}</label>
+    <div class="seireki"><span class="tag">西暦</span><input type="date" id="${id}" onchange="onDateInput('${id}')"></div>
+    ${warekiBlock(id, defEra)}
+  </div>`;
+}
+function markWareki(id, ok){
+  document.getElementById(`w_${id}`).classList.toggle("bad", !ok);
+}
+// 和暦欄 → 西暦欄
+function fromWareki(id){
+  const era = ERAS.find(e => e.name === document.getElementById(`${id}_era`).value);
+  const y = Number(document.getElementById(`${id}_y`).value);
+  const m = Number(document.getElementById(`${id}_m`).value);
+  const dd = Number(document.getElementById(`${id}_d`).value);
+  if (!y || !m || !dd){ markWareki(id, true); return; }   // 入力途中は判定しない
+  const yy = era.base + y - 1;
+  const dt = new Date(yy, m-1, dd);
+  if (dt.getFullYear()!==yy || dt.getMonth()!==m-1 || dt.getDate()!==dd){ markWareki(id,false); return; }
+  const s = fmtDate(dt);
+  if (s < era.start || (era.end && s > era.end)){ markWareki(id,false); return; } // 元号の範囲外
+  markWareki(id, true);
+  document.getElementById(id).value = s;
+  afterDateChange(id);
+}
+// 西暦欄 → 和暦欄
+function toWareki(id){
+  const v = document.getElementById(id).value;
+  if (!v) return;
+  const era = ERAS.find(e => v >= e.start && (!e.end || v <= e.end));
+  if (!era){ markWareki(id, false); return; }
+  const [y,m,dd] = v.split("-").map(Number);
+  document.getElementById(`${id}_era`).value = era.name;
+  document.getElementById(`${id}_y`).value = y - era.base + 1;
+  document.getElementById(`${id}_m`).value = m;
+  document.getElementById(`${id}_d`).value = dd;
+  markWareki(id, true);
+}
+function onDateInput(id){ toWareki(id); afterDateChange(id); }
+// 日付が変わったときの各画面固有の処理
+function afterDateChange(id){
+  const m = id.match(/^end(\d)$/);
+  if (m) syncReceive(Number(m[1]));
+}
+
+function paymentBlock(i){
+  const req = i===0 ? "" : ` <label class="toggle"><input type="checkbox" id="en${i}" onchange="toggleBlock(${i})"> この退職金を使う</label>`;
+  return `
+  <div class="card ${i===0?"":"disabled"}" id="card${i}">
+    <h2 style="display:flex; justify-content:space-between; align-items:center;">
+      <span>退職金 ${NUM[i]}</span>${req}
+    </h2>
+    <div class="body">
+      <div class="row">
+        <div class="field">
+          <label>⓪ 種類</label>
+          <select id="type${i}" onchange="onTypeChange(${i})">
+            <option value="normal">DC以外（会社退職金・小規模企業共済など）</option>
+            <option value="dc">DC（企業型DC・iDeCoの老齢一時金）</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>① 受取退職金（税引き前・円）</label>
+          <input type="text" id="income${i}" inputmode="numeric" placeholder="例：20,000,000" onblur="fmtNum(this)">
+        </div>
+      </div>
+      <div class="row">
+        ${dateField(`start${i}`,  `lblStart${i}`, "入社日（勤続開始日）", "昭和")}
+        ${dateField(`end${i}`,    `lblEnd${i}`,   "退職日（勤続終了日）", "令和")}
+        ${dateField(`receive${i}`,`lblRecv${i}`,  "受取日（税額は受取「年」で判定）", "令和")}
+      </div>
+      <label class="check"><input type="checkbox" id="officer${i}"> 役員等として受け取る退職金（勤続5年以下なら1/2課税なし）</label>
+      <label class="check"><input type="checkbox" id="disab${i}"> 障害者となったことが直接の原因の退職（控除＋100万円）</label>
+      <p class="note" id="noteDC${i}" style="display:none;">DCは「拠出期間」で控除を計算します。受取を後ろにずらしても控除額は増えませんが、受取年によって他の退職金との重複判定（19年／9年ルール）が変わります。</p>
+    </div>
+  </div>`;
+}
+
+function toggleBlock(i){
+  const on = document.getElementById(`en${i}`).checked;
+  document.getElementById(`card${i}`).classList.toggle("disabled", !on);
+}
+function onTypeChange(i){
+  const isDC = document.getElementById(`type${i}`).value === "dc";
+  document.getElementById(`lblStart${i}`).textContent = isDC ? "拠出開始日" : "入社日（勤続開始日）";
+  document.getElementById(`lblEnd${i}`).textContent   = isDC ? "拠出終了日" : "退職日（勤続終了日）";
+  document.getElementById(`lblRecv${i}`).textContent  = isDC ? "一時金の受取日（後ろ倒し可）" : "受取日（通常は退職日と同年）";
+  document.getElementById(`noteDC${i}`).style.display = isDC ? "block" : "none";
+}
+// 退職日を入れる／変えると受取日も追随。ただし受取日を自分で別の日にしていた場合はそのまま残す
+function syncReceive(i){
+  const end = document.getElementById(`end${i}`).value;
+  const recv = document.getElementById(`receive${i}`);
+  if (!end) return;
+  if (!recv.value || recv.value === recv.dataset.auto){
+    recv.value = end;
+    recv.dataset.auto = end;
+    toWareki(`receive${i}`);
+  }
+}
+function fmtNum(el){
+  const v = el.value.replace(/[^\d]/g,"");
+  el.value = v ? Number(v).toLocaleString("ja-JP") : "";
+}
+function numVal(id){
+  return Number(document.getElementById(id).value.replace(/[^\d]/g,"")) || 0;
+}
+
+document.getElementById("inputs").innerHTML = [0,1,2].map(paymentBlock).join("");
+
+/* ===== 簡易入力（年齢ベース） ===== */
+
+function simpleBlock(i){
+  const req = i===0 ? "" : ` <label class="toggle"><input type="checkbox" id="s_en${i}" onchange="toggleSimple(${i})"> この退職金を使う</label>`;
+  return `
+  <div class="card ${i===0?"":"disabled"}" id="s_card${i}">
+    <h2 style="display:flex; justify-content:space-between; align-items:center;">
+      <span>退職金 ${NUM[i]}</span>${req}
+    </h2>
+    <div class="body">
+      <div class="row">
+        <div class="field">
+          <label>⓪ 種類</label>
+          <select id="s_type${i}" onchange="onSimpleType(${i})">
+            <option value="normal">DC以外（会社退職金・小規模企業共済など）</option>
+            <option value="dc">DC（企業型DC・iDeCoの老齢一時金）</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>① 受取退職金（税引き前・円）</label>
+          <input type="text" id="s_income${i}" inputmode="numeric" placeholder="例：20,000,000" onblur="fmtNum(this)">
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label id="s_lblIn${i}">何歳で入社したか</label>
+          <input type="number" class="agebox" id="s_ageIn${i}" min="0" max="100" step="1" inputmode="numeric" placeholder="例：22" oninput="updateSimple(${i})">
+        </div>
+        <div class="field">
+          <label id="s_lblOut${i}">何歳で退職したか</label>
+          <input type="number" class="agebox" id="s_ageOut${i}" min="0" max="100" step="1" inputmode="numeric" placeholder="例：60" oninput="updateSimple(${i})" onchange="syncSimpleRecv(${i})">
+        </div>
+        <div class="field">
+          <label id="s_lblRecv${i}">何歳で受け取ったか</label>
+          <input type="number" class="agebox" id="s_ageRecv${i}" min="0" max="100" step="1" inputmode="numeric" placeholder="例：60" oninput="updateSimple(${i})">
+        </div>
+      </div>
+      <div class="derived" id="s_derived${i}">在職年数：－</div>
+      <label class="check"><input type="checkbox" id="s_officer${i}"> 役員等として受け取る退職金（勤続5年以下なら1/2課税なし）</label>
+      <label class="check"><input type="checkbox" id="s_disab${i}"> 障害者となったことが直接の原因の退職（控除＋100万円）</label>
+      <p class="note" id="s_noteDC${i}" style="display:none;">DCは「拠出期間」で控除を計算します。受取を後ろにずらしても控除額は増えませんが、何歳で受け取るかによって他の退職金との重複判定（19年／9年ルール）が変わります。</p>
+    </div>
+  </div>`;
+}
+document.getElementById("simpleInputs").innerHTML = [0,1,2].map(simpleBlock).join("");
+
+function toggleSimple(i){
+  const on = document.getElementById(`s_en${i}`).checked;
+  document.getElementById(`s_card${i}`).classList.toggle("disabled", !on);
+}
+function onSimpleType(i){
+  const isDC = document.getElementById(`s_type${i}`).value === "dc";
+  document.getElementById(`s_lblIn${i}`).textContent   = isDC ? "何歳でDCを始めたか" : "何歳で入社したか";
+  document.getElementById(`s_lblOut${i}`).textContent  = isDC ? "何歳でDCを終了したか" : "何歳で退職したか";
+  document.getElementById(`s_lblRecv${i}`).textContent = isDC ? "何歳でDCを受け取ったか" : "何歳で退職金を受け取ったか";
+  document.getElementById(`s_noteDC${i}`).style.display = isDC ? "block" : "none";
+  updateSimple(i);
+}
+// 退職年齢に追随（詳細入力の受取日と同じ考え方）。自分で変えた受取年齢は残す
+function syncSimpleRecv(i){
+  const out = document.getElementById(`s_ageOut${i}`).value;
+  const recv = document.getElementById(`s_ageRecv${i}`);
+  if (out === "") return;
+  if (recv.value === "" || recv.value === recv.dataset.auto){
+    recv.value = out;
+    recv.dataset.auto = out;
+    updateSimple(i);
+  }
+}
+function ageVal(id){
+  const v = document.getElementById(id).value;
+  return v === "" ? null : Number(v);
+}
+function fmtDate(dt){
+  const p = n => String(n).padStart(2,"0");
+  return `${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())}`;
+}
+/* 年齢 → 期間（計算コアは日付で動くため、内部だけで使う「仮の誕生日」を置く）
+   基準を2026-07-01にすると受取年は必ず 2026+受取年齢 ＝ 2026年以後になり、
+   常に新ルール（前9年内／前19年内）で判定される。西暦そのものは画面に出さない。 */
+const SYNTH_BIRTH = "2026-07-01";
+const SYNTH_BASE_YEAR = 2026;
+const ageOfYear = y => y - SYNTH_BASE_YEAR;   // 合成した受取年 → 受取年齢
+function simplePeriod(ageIn, ageOut, ageRecv){
+  const b = d(SYNTH_BIRTH);
+  return {
+    start:   fmtDate(addYears(b, ageIn)),
+    end:     fmtDate(addDays(addYears(b, ageOut), -1)),
+    receive: fmtDate(addYears(b, ageRecv))
+  };
+}
+function updateSimple(i){
+  const box = document.getElementById(`s_derived${i}`);
+  const isDC = document.getElementById(`s_type${i}`).value === "dc";
+  const label = isDC ? "DC加入年数" : "在職年数";
+  const ageIn = ageVal(`s_ageIn${i}`), ageOut = ageVal(`s_ageOut${i}`), ageRecv = ageVal(`s_ageRecv${i}`);
+  if (ageIn === null || ageOut === null || ageOut <= ageIn){
+    box.innerHTML = `${label}：－`;
+    return;
+  }
+  const endWord = isDC ? "終了" : "退職";
+  let sub = "";
+  if (ageRecv === null)        sub = `${ageIn}歳〜${ageOut}歳`;
+  else if (ageRecv === ageOut) sub = `${ageIn}歳〜${ageOut}歳 ／ 受取は${endWord}と同時（${ageRecv}歳）`;
+  else if (ageRecv > ageOut)   sub = `${ageIn}歳〜${ageOut}歳 ／ 受取は${endWord}の${ageRecv-ageOut}年後（${ageRecv}歳）`;
+  else                         sub = `${ageIn}歳〜${ageOut}歳 ／ 受取年齢が${endWord}年齢より前です`;
+  box.innerHTML = `${label}：${ageOut - ageIn}年<span class="sub">${sub}</span>`;
+}
+function updateAllSimple(){ [0,1,2].forEach(updateSimple); }
+updateAllSimple();
+
+/* ===== モード切り替え ===== */
+let mode = "simple";
+function setMode(m){
+  mode = m;
+  document.getElementById("simpleWrap").style.display = m === "simple" ? "" : "none";
+  document.getElementById("detailWrap").style.display = m === "detail" ? "" : "none";
+  document.getElementById("tabSimple").classList.toggle("active", m === "simple");
+  document.getElementById("tabDetail").classList.toggle("active", m === "detail");
+  document.getElementById("output").innerHTML = "";
+  try { localStorage.setItem("dctakumi-mode", m); } catch(e){}
+}
+let savedMode = "simple";
+try { savedMode = localStorage.getItem("dctakumi-mode") || "simple"; } catch(e){}
+setMode(savedMode);
+
+function run(){
+  return mode === "simple" ? runSimple() : runDetail();
+}
+
+function runSimple(){
+  const out = document.getElementById("output");
+  const payments = [];
+  const errors = [];
+  for (let i=0;i<3;i++){
+    if (i>0 && !document.getElementById(`s_en${i}`).checked) continue;
+    const isDC = document.getElementById(`s_type${i}`).value === "dc";
+    const income = numVal(`s_income${i}`);
+    const ageIn = ageVal(`s_ageIn${i}`), ageOut = ageVal(`s_ageOut${i}`);
+    let ageRecv = ageVal(`s_ageRecv${i}`);
+    if (ageRecv === null) ageRecv = ageOut;
+    const name = `退職金${NUM[i]}`;
+    const wIn  = isDC ? "DC開始年齢" : "入社年齢";
+    const wOut = isDC ? "DC終了年齢" : "退職年齢";
+    if (!income) errors.push(`${name}：受取額を入力してください`);
+    if (ageIn === null || ageOut === null) errors.push(`${name}：${wIn}・${wOut}を入力してください`);
+    else {
+      if (ageOut <= ageIn) errors.push(`${name}：${wOut}は${wIn}より後（大きい数）にしてください`);
+      if (ageRecv < ageOut) errors.push(`${name}：受取年齢は${wOut}以上にしてください`);
+      if (ageIn < 0 || ageRecv > 100) errors.push(`${name}：年齢は0〜100歳の範囲で入力してください`);
+    }
+    if (errors.length) continue;
+    const pr = simplePeriod(ageIn, ageOut, ageRecv);
+    payments.push({
+      no: i+1,
+      isDC,
+      isOfficer: document.getElementById(`s_officer${i}`).checked,
+      isDisability: document.getElementById(`s_disab${i}`).checked,
+      income, start: pr.start, end: pr.end, receive: pr.receive,
+      recvAge: ageRecv,
+      desc: `${ageIn}歳〜${ageOut}歳（${ageOut-ageIn}年）・${ageRecv}歳で受取`
+    });
+  }
+  if (errors.length){
+    out.innerHTML = `<div class="error">${errors.join("<br>")}</div>`;
+    return;
+  }
+  const res = calculateAll(payments, {
+    yearLabel: y => `${ageOfYear(y)}歳`,
+    newRuleOnly: true
+  });
+  render(res);
+  out.scrollIntoView({behavior:"smooth"});
+}
+
+function runDetail(){
+  const out = document.getElementById("output");
+  const payments = [];
+  const errors = [];
+  for (let i=0;i<3;i++){
+    if (i>0 && !document.getElementById(`en${i}`).checked) continue;
+    const income = numVal(`income${i}`);
+    const start = document.getElementById(`start${i}`).value;
+    const end = document.getElementById(`end${i}`).value;
+    const receive = document.getElementById(`receive${i}`).value || end;
+    const name = `退職金${NUM[i]}`;
+    if (!income) errors.push(`${name}：受取額を入力してください`);
+    if (!start || !end) errors.push(`${name}：開始日・終了日を入力してください`);
+    if (start && end && start >= end) errors.push(`${name}：終了日は開始日より後にしてください`);
+    if (end && receive && receive < end) errors.push(`${name}：受取日は終了日以後にしてください`);
+    if (errors.length) continue;
+    payments.push({
+      no: i+1,
+      isDC: document.getElementById(`type${i}`).value === "dc",
+      isOfficer: document.getElementById(`officer${i}`).checked,
+      isDisability: document.getElementById(`disab${i}`).checked,
+      income, start, end, receive
+    });
+  }
+  if (errors.length){
+    out.innerHTML = `<div class="error">${errors.join("<br>")}</div>`;
+    return;
+  }
+  const res = calculateAll(payments);
+  render(res);
+  out.scrollIntoView({behavior:"smooth"});
+}
+
+function render(res){
+  const out = document.getElementById("output");
+  let html = "";
+  html += `<div class="total-box"><h2>■ 合計（全受取分）</h2><div class="total-grid">
+    <div class="total-item"><div class="lbl">受取退職金（税引き前）合計</div><div class="val">${YEN(res.totals.income)}</div></div>
+    <div class="total-item tax"><div class="lbl">⑦ 税負担合計額</div><div class="val">${YEN(res.totals.tax)}</div></div>
+    <div class="total-item net"><div class="lbl">⑧ 手取り合計（税引き後）</div><div class="val">${YEN(res.totals.net)}</div></div>
+  </div></div>`;
+
+  for (const w of res.warnings) html += `<div class="warn">⚠ ${w}</div>`;
+
+  for (const ev of res.events){
+    const names = ev.payments.map(p=>{
+      const kind = p.isDC ? "DC" : "DC以外";
+      return `退職金${NUM[p.no-1]}（${kind}・${YEN(p.income)}・${p.desc || `期間 ${p.start}〜${p.end}`}）`;
+    }).join("<br>");
+    const kindLabel = ev.hasDC && ev.payments.every(p=>p.isDC) ? "DC"
+      : ev.payments.every(p=>!p.isDC) ? "DC以外" : "DC＋DC以外（同一年合算）";
+    const evTitle = ev.payments[0].recvAge != null
+      ? `${ev.payments[0].recvAge}歳で受け取った分`
+      : `${ev.year}年受取分`;
+    html += `<div class="card">
+      <h2>${evTitle}</h2>
+      <table class="result">
+        <tr><th>⓪ 退職金の種類</th><td class="left">${kindLabel}<br><span class="note">${names}</span></td></tr>
+        <tr><th>① 受取退職金（税引き前）</th><td>${YEN(ev.income)}</td></tr>
+        <tr><th>② 勤続年数（DC拠出年数）</th><td>${ev.serviceYears}年（1年未満切上げ）</td></tr>
+        <tr><th>③ 退職所得控除額</th><td>${YEN(ev.deduction)}${ev.overlapYears>0?`<br><span class="note">（調整前 ${YEN(ev.baseDeduction)} − 重複${ev.overlapYears}年分 ${YEN(deductionEquivalent(ev.overlapYears))}${ev.payments.some(p=>p.isDisability)?" ＋障害者加算100万円":""}）</span>`:""}</td></tr>
+        <tr><th>④ 課税対象金額</th><td>${YEN(ev.taxable)}</td></tr>
+        <tr><th>⑤ 所得税額（復興特別所得税込み）</th><td>${YEN(ev.incomeTax)}</td></tr>
+        <tr><th>⑥ 住民税額（10%）</th><td>${YEN(ev.residentTax)}</td></tr>
+        <tr><th>⑦ 税負担合計額</th><td class="amount-big">${YEN(ev.totalTax)}</td></tr>
+        <tr><th>⑧ 受取退職金（税引き後）</th><td class="amount-big">${YEN(ev.net)}</td></tr>
+      </table>
+      ${ev.notes.length?`<div class="detail"><b>適用ルール・計算過程</b><ul>${ev.notes.map(n=>`<li>${n}</li>`).join("")}</ul></div>`:""}
+    </div>`;
+  }
+  out.innerHTML = html;
+}
+</script>
+
+<script id="gate-logic">
+/* ===== 入場コード（「ログインの仕様 20260727.xlsx」の数式をそのまま実装） =====
+   入力は2つ： ①お客様番号 KKKKYY（顧客コード4桁＋契約月2桁） ②パスワード5桁
+   KKKKYY からパスワードを計算し、入力されたパスワードと一致したら入場する（照合式）。
+     基準日 ＝ 今日以前で直近の「契約月1日」のExcelシリアル値（→ コードは年1回、契約月に切替）
+     コード ＝ ( 基準日シリアル × 顧客コード × 1797 ) の下5桁。10000未満なら +20000 して5桁に揃える
+   顧客リストは不要。利用期限だけ、お試しの方を TRIALS に登録して判定する。            */
+
+/* ▼▼ お試しの方だけ登録：ここに書いた顧客コードは利用期限つきになります ▼▼
+   通常のお客様は登録不要（下の配列が空でも動きます）                        */
+const TRIALS = [
+  { no: 1001, expiry: "2026-07-31" },
+];
+/* ▲▲ ここまで ▲▲ */
+
+// Excelのシリアル値（1900/1/1 を 1 とする通し番号）
+function excelSerial(y, m, dd){
+  return Math.round((Date.UTC(y, m-1, dd) - Date.UTC(1899, 11, 30)) / 86400000);
+}
+// 今日以前で直近の「contractMonth月1日」
+function baseSerialOf(contractMonth, today){
+  const y = contractMonth > (today.getMonth()+1) ? today.getFullYear()-1 : today.getFullYear();
+  return excelSerial(y, contractMonth, 1);
+}
+function codeOf(baseSer, custNo){
+  const last5 = Number(String(baseSer * custNo * 1797).slice(-5));
+  return last5 < 10000 ? last5 + 20000 : last5;
+}
+// 👁：入力した数字の表示／非表示を切り替える
+function toggleEye(){
+  const el = document.getElementById("gateCode");
+  const btn = document.getElementById("eyeBtn");
+  const reveal = el.type === "password";
+  el.type = reveal ? "text" : "password";
+  btn.classList.toggle("on", reveal);
+  btn.setAttribute("aria-label", reveal ? "パスワードを隠す" : "パスワードを表示");
+  el.focus();
+}
+function tryUnlock(){
+  const msg = document.getElementById("gateMsg");
+  const idRaw   = (document.getElementById("gateId").value   || "").replace(/[^\d]/g, "");
+  const codeRaw = (document.getElementById("gateCode").value || "").replace(/[^\d]/g, "");
+  if (idRaw.length !== 6){ msg.textContent = "お客様番号は6桁で入力してください"; return; }
+  if (codeRaw.length !== 5){ msg.textContent = "パスワードは5桁で入力してください"; return; }
+
+  const custNo = Number(idRaw.slice(0, 4));          // KKKK＝顧客コード
+  const month  = Number(idRaw.slice(4, 6));          // YY  ＝契約月
+  if (!(month >= 1 && month <= 12)){
+    msg.textContent = "お客様番号の下2桁（契約月）が正しくありません"; return;
+  }
+  const today = new Date();
+  if (codeOf(baseSerialOf(month, today), custNo) !== Number(codeRaw)){
+    msg.textContent = "パスワードが違います"; return;
+  }
+  const trial = TRIALS.find(t => t.no === custNo);
+  if (trial && trial.expiry){
+    const [ey, em, ed] = trial.expiry.split("-").map(Number);
+    const todaySer = excelSerial(today.getFullYear(), today.getMonth()+1, today.getDate());
+    if (excelSerial(ey, em, ed) < todaySer){ msg.textContent = "利用期限が過ぎています"; return; }
+  }
+  const g = document.getElementById("gate");
+  if (g) g.remove();
+}
+document.getElementById("gateId").focus();
+</script>
+</body>
+</html>
