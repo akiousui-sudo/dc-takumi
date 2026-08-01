@@ -848,32 +848,61 @@ function toggleEye(){
   btn.setAttribute("aria-label", reveal ? "パスワードを隠す" : "パスワードを表示");
   el.focus();
 }
-function tryUnlock(){
-  const msg = document.getElementById("gateMsg");
-  const idRaw   = (document.getElementById("gateId").value   || "").replace(/[^\d]/g, "");
-  const codeRaw = (document.getElementById("gateCode").value || "").replace(/[^\d]/g, "");
-  if (idRaw.length !== 6){ msg.textContent = "お客様番号は6桁で入力してください"; return; }
-  if (codeRaw.length !== 5){ msg.textContent = "パスワードは5桁で入力してください"; return; }
+// この端末に「入力されたコード＋パスワード」を覚えておくための保存キー
+const GATE_KEY = "dc_takumi_login";
 
+// 照合ロジック（初回の手入力・2回目以降の自動ログインの両方で使う共通処理）
+// 戻り値： {ok:true} … 入場OK ／ {ok:false, msg:"…"} … はじく理由つき
+function validate(idRaw, codeRaw, today){
+  if (idRaw.length !== 6){  return {ok:false, msg:"お客様番号は6桁で入力してください"}; }
+  if (codeRaw.length !== 5){ return {ok:false, msg:"パスワードは5桁で入力してください"}; }
   const custNo = Number(idRaw.slice(0, 4));          // KKKK＝顧客コード
   const month  = Number(idRaw.slice(4, 6));          // YY  ＝契約月
   if (!(month >= 1 && month <= 12)){
-    msg.textContent = "お客様番号の下2桁（契約月）が正しくありません"; return;
+    return {ok:false, msg:"お客様番号の下2桁（契約月）が正しくありません"};
   }
-  const today = new Date();
   if (codeOf(baseSerialOf(month, today), custNo) !== Number(codeRaw)){
-    msg.textContent = "パスワードが違います"; return;
+    return {ok:false, msg:"パスワードが違います"};   // ← 契約月にパスワードが変わると旧値はここで不一致になる
   }
   const trial = TRIALS.find(t => t.no === custNo);
   if (trial && trial.expiry){
     const [ey, em, ed] = trial.expiry.split("-").map(Number);
     const todaySer = excelSerial(today.getFullYear(), today.getMonth()+1, today.getDate());
-    if (excelSerial(ey, em, ed) < todaySer){ msg.textContent = "利用期限が過ぎています"; return; }
+    if (excelSerial(ey, em, ed) < todaySer){ return {ok:false, msg:"利用期限が過ぎています"}; }
   }
+  return {ok:true};
+}
+
+// 入場（ログイン画面を消す）
+function enterApp(){
   const g = document.getElementById("gate");
   if (g) g.remove();
 }
-document.getElementById("gateId").focus();
+
+// 初回：手入力で開く。照合OKならこの端末に保存し、次回以降は自動照合にする
+function tryUnlock(){
+  const msg = document.getElementById("gateMsg");
+  const idRaw   = (document.getElementById("gateId").value   || "").replace(/[^\d]/g, "");
+  const codeRaw = (document.getElementById("gateCode").value || "").replace(/[^\d]/g, "");
+  const r = validate(idRaw, codeRaw, new Date());
+  if (!r.ok){ msg.textContent = r.msg; return; }
+  try { localStorage.setItem(GATE_KEY, JSON.stringify({ id: idRaw, code: codeRaw })); } catch(e){}
+  enterApp();
+}
+
+// 2回目以降：起動時に、保存済みのコード＋パスワードで内部的に毎回再照合する。
+//   通れば → 入力なしで素通り
+//   通らなければ（契約月のパスワード切替・お試しの期限切れなど）→ 記憶を消して入力画面を表示
+function autoLogin(){
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(GATE_KEY) || "null"); } catch(e){}
+  if (saved && saved.id && saved.code && validate(saved.id, saved.code, new Date()).ok){
+    enterApp(); return;
+  }
+  try { localStorage.removeItem(GATE_KEY); } catch(e){}   // 無効になった記憶は破棄
+  document.getElementById("gateId").focus();
+}
+autoLogin();
 </script>
 </body>
 </html>
