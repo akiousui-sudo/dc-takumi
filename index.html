@@ -825,6 +825,12 @@ const TRIALS = [
 ];
 /* ▲▲ ここまで ▲▲ */
 
+/* ▼▼ 製作者用マスターログイン（薄井さん専用） ▼▼
+   年1回のパスワード切替も、利用期限も一切受けず、いつでもこの固定の組み合わせで入れます。
+   お客様番号6桁・パスワード5桁。数字を変えたいときはここの値だけ書き換えればOK。 */
+const MASTER = { id: "999999", code: "77777" };
+/* ▲▲ ここまで ▲▲ */
+
 // Excelのシリアル値（1900/1/1 を 1 とする通し番号）
 function excelSerial(y, m, dd){
   return Math.round((Date.UTC(y, m-1, dd) - Date.UTC(1899, 11, 30)) / 86400000);
@@ -854,6 +860,8 @@ const GATE_KEY = "dc_takumi_login";
 // 照合ロジック（初回の手入力・2回目以降の自動ログインの両方で使う共通処理）
 // 戻り値： {ok:true} … 入場OK ／ {ok:false, msg:"…"} … はじく理由つき
 function validate(idRaw, codeRaw, today){
+  // 製作者用マスターログイン：日付・利用期限に関係なく常に通す
+  if (idRaw === MASTER.id && codeRaw === MASTER.code){ return {ok:true}; }
   if (idRaw.length !== 6){  return {ok:false, msg:"お客様番号は6桁で入力してください"}; }
   if (codeRaw.length !== 5){ return {ok:false, msg:"パスワードは5桁で入力してください"}; }
   const custNo = Number(idRaw.slice(0, 4));          // KKKK＝顧客コード
